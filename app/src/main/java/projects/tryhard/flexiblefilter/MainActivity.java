@@ -1,14 +1,13 @@
 package projects.tryhard.flexiblefilter;
 
 import android.content.Context;
+import android.os.Bundle;
 import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.util.DisplayMetrics;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import java.util.ArrayList;
 
@@ -28,25 +27,26 @@ public class MainActivity extends AppCompatActivity {
         mFilter = findViewById(R.id.filter);
 
 
-        int theFirstFilterId = mFilter.init(this, 0, "0", "All(%d)", new FlexibleFilter.FilterClickCallback<String>() {
+        int theFirstFilterId = mFilter.init(this, 0, "0", "All(%d)", new FlexibleFilter.FilterCallback<String>() {
             TextView title;
 
             @Override
             public void filterOptionClicked(View titleView, int filterNum, String filterId) {
                 title = titleView.findViewById(R.id.filter_title);
-                title.setText("Selecting:" + filterId);
+                title.setText(filterId);
             }
 
             @Override
             public void filterOptionNotExistError() {
-                Toast.makeText(MainActivity.this, "This option does not exist!", Toast.LENGTH_SHORT).show();
+
             }
 
             @Override
             public void noSuchFilterError(int notExistFilterNum) {
-                Toast.makeText(MainActivity.this, "This Filter number: " + notExistFilterNum + " does not exist!", Toast.LENGTH_SHORT).show();
+
             }
         });
+
 
         mFilter.addFilterOption(0, "A", "A(%d)", 0, getScreenWidthPixel(this) / 2);
         mFilter.addFilterOption(0, "B", "B(%d)", 41, getScreenWidthPixel(this) / 3);
@@ -63,7 +63,7 @@ public class MainActivity extends AppCompatActivity {
 //        filter.addFilterOption(2, "B", "B(%d)", 6, CommonUtils.getScreenWidthPixel(getContext()) / 3);
 //        filter.addFilterOption(2, "C", "C(%d)", 7, CommonUtils.getScreenWidthPixel(getContext()) / 3);
 
-        mFilter.setOpeningFilters(new ArrayList<Integer>(){{
+        mFilter.setOpeningFilters(new ArrayList<Integer>() {{
             add(0);
             add(1);
         }});
