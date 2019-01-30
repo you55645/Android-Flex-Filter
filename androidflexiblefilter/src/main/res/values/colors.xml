@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="gray">#FFAAAAAA</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="black">#FF000000</color>
+
+    <color name="filter_default_not_selected_filler">#ecf0f1</color>
+    <color name="filter_default_selected_filler">#7f8c8d</color>
+    <color name="filter_default_outline">#2c3e50</color>
+
+</resources>
