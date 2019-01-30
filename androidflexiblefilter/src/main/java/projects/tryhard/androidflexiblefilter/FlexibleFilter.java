@@ -4,6 +4,7 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.content.Context;
+import android.content.res.TypedArray;
 import android.os.Build;
 import android.support.annotation.ColorRes;
 import android.support.annotation.DrawableRes;
@@ -13,7 +14,6 @@ import android.support.annotation.RequiresApi;
 import android.support.v4.content.ContextCompat;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -33,9 +33,20 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+/**
+ * A class for filter, set up like this. For more detail and samples, go to {@see <a hreh="https://github.com/you55645/Android-Flex-Filter" >FlexibleFilter</a>}.
+ * 1. If you use xml to set attributes or you want to use default values, you can use the {@link #init(Context, int, Object, String, FilterClickCallback)}. If you want to do the init settings through code, use {@link #init(Context, int, Object, String, boolean, boolean, Orientation, int, FilterClickCallback)}.
+ * --- Basic set up done, you can open up to see how it looks like.
+ * 2. After init, you will have at least one filter, you can add filter later also, but if you only planning on using one. You can start to add options. (step 4).
+ * 3. If you want to add more filters, use {@link #addFilter(Object, String)}.
+ * 4. Adding options to filter you want to add by {@link #addFilterOption(int, Object, String, int, int)} or {@link #addFilterOption(int, Object, String, int, int, int, int, int)}.
+ * 5. If you want to update certain option from certain filter, use {@link #updateCertainOption(int, Object, int)}. If you want to update all, use {@link #updateAllFilters()}.
+ * --- Set up done.
+ * @param <T> A class for you to decide the unique ID of every option, which will be passed when user clicked an option or call {@link #optionSelect(int, Object)} through code.
+ */
 public class FlexibleFilter<T> extends LinearLayout {
     /**
-     * A Enum used to decide the orientation of the whole Filter Layout
+     * A Enum used to decide the mOrientation of the whole Filter Layout
      */
     public enum Orientation {
         VERTICAL,
@@ -62,7 +73,7 @@ public class FlexibleFilter<T> extends LinearLayout {
 
     private List<FilterHolder> mFilters;
     private FilterClickCallback<T> mFilterClickCallback;
-    private List<Integer> mCurrentOpeningComplex;
+    private List<Integer> mCurrentOpeningFilters;
 
     /**
      * views used.
@@ -88,19 +99,35 @@ public class FlexibleFilter<T> extends LinearLayout {
      * A variable decide how many filters we show at one row. Default is one.
      */
     private int mFilterColCount = 1;
+    /**
+     * A variable to check where we are in horizontal or vertical mode.
+     */
+    private Orientation mOrientation = Orientation.VERTICAL;
 
     /**
-     * Callback when option being pressed or called @link #optionSelect(int filterComplex, T filterId)
+     * Callback when option being pressed or called @link #optionSelect(int filterNum, T filterId)
+     *
      * @param <T> T should be unique so you can used it to find out which option user select.
      */
     public interface FilterClickCallback<T> {
         /**
-         * Call when option being pressed or called @link #optionSelect(int filterComplex, T filterId)
+         * Call when option being pressed or called @link #optionSelect(int filterNum, T filterId)
+         *
          * @param titleView The title view you passed in when init.
-         * @param filterComplex Let you know which filter user select.
-         * @param filterId Option unique value.
+         * @param filterNum Let you know which filter user select.
+         * @param filterId  Option unique value.
          */
-        void filterOptionClicked(View titleView, int filterComplex, T filterId);
+        void filterOptionClicked(View titleView, int filterNum, T filterId);
+
+        /**
+         * Get called when you select an non-exist option.
+         */
+        void filterOptionNotExistError();
+
+        /**
+         * Get called when is no FilterNum match that.
+         */
+        void noSuchFilterError(int notExistFilterNum);
     }
 
     //region View constructors.
@@ -110,10 +137,38 @@ public class FlexibleFilter<T> extends LinearLayout {
 
     public FlexibleFilter(Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
+
+        TypedArray attributes = context.obtainStyledAttributes(attrs, R.styleable.FlexibleFilter);
+
+        mFilterColCount = attributes.getInteger(R.styleable.FlexibleFilter_colCount, 1);
+        mShouldHideAll = attributes.getBoolean(R.styleable.FlexibleFilter_shouldHideAll, false);
+        mShouldHideZeroFilters = attributes.getBoolean(R.styleable.FlexibleFilter_shouldHideZeroFilters, false);
+
+        if (attributes.getInt(R.styleable.FlexibleFilter_orientation, 0) == 0) {
+            mOrientation = Orientation.VERTICAL;
+        } else {
+            mOrientation = Orientation.HORIZONTAL;
+        }
+
+        attributes.recycle();
     }
 
     public FlexibleFilter(Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
+
+        TypedArray attributes = context.obtainStyledAttributes(attrs, R.styleable.FlexibleFilter, defStyleAttr, 0);
+
+        mFilterColCount = attributes.getInteger(R.styleable.FlexibleFilter_colCount, 1);
+        mShouldHideAll = attributes.getBoolean(R.styleable.FlexibleFilter_shouldHideAll, false);
+        mShouldHideZeroFilters = attributes.getBoolean(R.styleable.FlexibleFilter_shouldHideZeroFilters, false);
+
+        if (attributes.getInt(R.styleable.FlexibleFilter_orientation, 0) == 0) {
+            mOrientation = Orientation.VERTICAL;
+        } else {
+            mOrientation = Orientation.HORIZONTAL;
+        }
+
+        attributes.recycle();
     }
 
     @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
@@ -123,36 +178,43 @@ public class FlexibleFilter<T> extends LinearLayout {
     //endregion
 
     //region Init.
+
     /**
      * Use to init the whole filter with more detail.
-     * @param context We use to inflate layouts.
-     * @param titleLayout The title you want for the filter, -1 means no title.
-     * @param allT A unique ID for the default all option.
-     * @param defaultFormat A String for the default all option.
-     * @param hideAll Should we hide the default all option?
-     * @param hideZeroFilters Should we hide the options that is 0?
-     * @param orientation The orientation of the filters' layout.
-     * @param colCount How many filters we show at one row. Default is one.
+     *
+     * @param context             We use to inflate layouts.
+     * @param titleLayout         The title you want for the filter, -1 means no title.
+     * @param allT                A unique ID for the default all option.
+     * @param defaultFormat       A String for the default all option.
+     * @param hideAll             Should we hide the default all option?
+     * @param hideZeroFilters     Should we hide the options that is 0?
+     * @param orientation         The mOrientation of the filters' layout.
+     * @param colCount            How many filters we show at one row. Default is one.
      * @param filterClickCallback Callback when option being pressed or called @link #optionSelect(int filterComplex, T filterId).
+     * @return A number for default filter, use it when you want to update, show or hide certain filter.
      */
-    public void init(Context context, @LayoutRes int titleLayout, final T allT, String defaultFormat, boolean hideAll, boolean hideZeroFilters, Orientation orientation, int colCount, FilterClickCallback filterClickCallback) {
-        init(context, titleLayout, allT, defaultFormat, filterClickCallback);
+    public int init(Context context, @LayoutRes int titleLayout, final T allT, String defaultFormat, boolean hideAll, boolean hideZeroFilters, Orientation orientation, int colCount, FilterClickCallback<T> filterClickCallback) {
+        int filterNum = init(context, titleLayout, allT, defaultFormat, filterClickCallback);
 
         setShouldHideZeroFilters(hideZeroFilters);
         setShouldHideAll(hideAll);
         setFilterOrientation(orientation);
         setFilterColCount(colCount);
+
+        return filterNum;
     }
 
     /**
      * Use to init the whole filter with default.
-     * @param context We use to inflate layouts.
-     * @param titleLayout The title you want for the filter, -1 means no title.
-     * @param allT A unique ID for the default all option.
-     * @param defaultFormat A String for the default all option.
+     *
+     * @param context             We use to inflate layouts.
+     * @param titleLayout         The title you want for the filter, -1 means no title, 0 means default title.
+     * @param allT                A unique ID for the default all option.
+     * @param defaultFormat       A String for the default all option.
      * @param filterClickCallback Callback when option being pressed or called @link #optionSelect(int filterComplex, T filterId).
+     * @return A number for default filter, use it when you want to update, show or hide certain filter.
      */
-    public void init(Context context, @LayoutRes int titleLayout, final T allT, String defaultFormat, FilterClickCallback filterClickCallback) {
+    public int init(Context context, @LayoutRes int titleLayout, final T allT, String defaultFormat, FilterClickCallback<T> filterClickCallback) {
         inflate(getContext(), R.layout.filter_layout, this);
         mFilterClickCallback = filterClickCallback;
         mContext = context;
@@ -161,20 +223,24 @@ public class FlexibleFilter<T> extends LinearLayout {
         mHorizontalScrollView = findViewById(R.id.filter_horizontalScrollView);
         mVerticalScrollView = findViewById(R.id.filter_verticalScrollView);
 
-        mCurrentOpeningComplex = new ArrayList<>();
+        mCurrentOpeningFilters = new ArrayList<>();
 
-        if(titleLayout != -1){
-            mTitleView = LayoutInflater.from(context).inflate(titleLayout, null);
-            mTitleView.setOnClickListener(new OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    if (!isCurrentOpen()) {
-                        openFilterContainer();
-                    } else {
-                        closeFilterContainer();
+        if (titleLayout != -1) {
+            if (titleLayout == 0) {
+                mTitleView = LayoutInflater.from(context).inflate(R.layout.filter_default_title, null);
+                mTitleView.setOnClickListener(new OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        if (!isCurrentOpen()) {
+                            open();
+                        } else {
+                            close();
+                        }
                     }
-                }
-            });
+                });
+            } else {
+                mTitleView = LayoutInflater.from(context).inflate(titleLayout, null);
+            }
             mTitleContainer.addView(mTitleView);
         }
 
@@ -182,11 +248,19 @@ public class FlexibleFilter<T> extends LinearLayout {
 
         addFilter(allT, defaultFormat);
 
-        mCurrentOpeningComplex.add(0);
+        mCurrentOpeningFilters.add(0);
+
+        setFilterOrientation(mOrientation);
+        return 0;
     }
     //endregion
 
-    public void addFilter(final T defaultT, String defaultFormat) {
+    /**
+     * @param defaultT      A unique ID for the default all option.
+     * @param defaultFormat A String for the default all option.
+     * @return A number for this filter, use it when you want to update, show or hide certain filter.
+     */
+    public int addFilter(final T defaultT, String defaultFormat) {
         FlexboxLayout flexboxLayout = new FlexboxLayout(mContext);
         FlexboxLayout.LayoutParams lp = new FlexboxLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         flexboxLayout.setLayoutParams(lp);
@@ -201,84 +275,161 @@ public class FlexibleFilter<T> extends LinearLayout {
         mFilters.add(new FilterHolder(new ArrayList<Option>(), flexboxLayout));
 
         addFilterOption(mFilters.size() - 1, defaultT, defaultFormat, 0, getScreenWidthPixel(mContext), dpToPixels(mContext, 8), dpToPixels(mContext, 8), dpToPixels(mContext, 8));
+
+        return mFilters.size() - 1;
     }
 
+    /**
+     * Update all exist filters, including those are hiding.
+     */
     public void updateAllFilters() {
         for (int i = 0; i < mFilters.size(); i++) {
-            updateFilterComplex(i);
+            updateFilter(i);
         }
     }
 
+    /**
+     * Check if the Dropdown part being opened.
+     *
+     * @return true if opened.
+     */
     public boolean isCurrentOpen() {
-        return mFilters.get(mCurrentOpeningComplex.get(0)).isContainerVisible();
+        return mFilters.get(mCurrentOpeningFilters.get(0)).isContainerVisible();
     }
 
-    public void setCurrentOpeningComplex(List<Integer> openComplex) {
-        if (!isComplexValid(openComplex)) return;
+    /**
+     * Just open one filter.
+     *
+     * @param filterNum The filter number tou want to open.
+     */
+    public void setOpeningFilterOne(int filterNum) {
+        ArrayList<Integer> list = new ArrayList<>();
+        list.add(filterNum);
+        setOpeningFilters(list);
+    }
+
+    /**
+     * Want to open multiple filters at the same time.
+     *
+     * @param openFilters The filter numbers tou want to open.
+     */
+    public void setOpeningFilters(List<Integer> openFilters) {
+        if (!isFiltersValid(openFilters)) return;
         if (isCurrentOpen()) {
             hideAllOpeningContainer();
         }
 
-        for (int i = 0; i < openComplex.size(); i++) {
-            mFilters.get(openComplex.get(i)).setContainerVisible(isCurrentOpen());
-            mFilters.get(openComplex.get(i)).setContainerSize(getScreenWidthPixel(mContext) / mFilterColCount);
+        for (int i = 0; i < openFilters.size(); i++) {
+            mFilters.get(openFilters.get(i)).setContainerVisible(isCurrentOpen());
+            mFilters.get(openFilters.get(i)).setContainerSize(getScreenWidthPixel(mContext) / mFilterColCount);
         }
 
-        mCurrentOpeningComplex.clear();
-        mCurrentOpeningComplex = openComplex;
+        mCurrentOpeningFilters.clear();
+        mCurrentOpeningFilters = openFilters;
         updateAllFilters();
     }
 
-    public List<Integer> getCurrentOpeningComplex() {
-        return mCurrentOpeningComplex;
+    /**
+     * Get Opening filter numbers.
+     *
+     * @return A list contain all the filter numbers opening.
+     */
+    public List<Integer> getCurrentOpeningFilters() {
+        return mCurrentOpeningFilters;
     }
 
-    public void optionSelect(int filterComplex, T filterId) {
+    /**
+     * Perform a click on an option by code.
+     *
+     * @param filterNum The unique filter number you want to click.
+     * @param filterId  The unique filter option ID you want to click.
+     */
+    public void optionSelect(int filterNum, T filterId) {
 
-        if (isSelectedFilterOpening(filterComplex)) {
-//            mCurrentOpeningComplex = filterComplex;
-            mFilters.get(filterComplex).setOptionsDeco(filterId);
-            closeFilterContainer();
-            updateFilterComplex(filterComplex);
+        if (isFilterOpening(filterNum)) {
+//            mCurrentOpeningFilters = filterNum;
+            mFilters.get(filterNum).setOptionsDeco(filterId);
+            close();
+            updateFilter(filterNum);
 
-            mFilterClickCallback.filterOptionClicked(mTitleView, filterComplex, filterId);
+            mFilterClickCallback.filterOptionClicked(mTitleView, filterNum, filterId);
         } else {
             // not in should we add?
+            mFilterClickCallback.filterOptionNotExistError();
         }
     }
 
-    public void updateCertainOption(int filterComplex, T filterId, int count) {
-        mFilters.get(filterComplex).getFilterButton(filterId).setResultCount(count);
-        updateFilterComplex(filterComplex);
+    /**
+     * Update a certain filter's certain option count.
+     *
+     * @param filterNum The certain filter number.
+     * @param filterId  The certain option ID.
+     * @param count     New count.
+     */
+    public void updateCertainOption(int filterNum, T filterId, int count) {
+        mFilters.get(filterNum).getFilterButton(filterId).setResultCount(count);
+        updateFilter(filterNum);
     }
 
-    public void removeFilter(int filterComplex, T filterId) {
-        mFilters.get(filterComplex).removeFilter(filterId);
+    /**
+     * I don't really remove it, I just hide it up and set a flag to it so it won't be open in any circumstances.
+     *
+     * @param filterNum The filter number you want to remove.
+     */
+    public void removeFilter(int filterNum) {
+        mFilters.get(filterNum).removeFilter();
         updateAllFilters();
     }
 
-    public void addFilterOption(int filterComplex, T filterId, String formatString, int count, int width) {
-        addFilterOption(filterComplex, filterId, formatString, count, width, dpToPixels(mContext, 8), 0, dpToPixels(mContext, 8));
+    /**
+     * Add a option to filter with left margin 8dp, right 0dp, up and down 8dp.
+     *
+     * @param filterNum    The filter number where you want to add an option.
+     * @param filterId     The unique ID you give to the option.
+     * @param formatString The display text format you will have on the option.
+     * @param count        The count of this option from the beginning.
+     * @param width        The width of this option.
+     */
+    public void addFilterOption(int filterNum, T filterId, String formatString, int count, int width) {
+        addFilterOption(filterNum, filterId, formatString, count, width, dpToPixels(mContext, 8), 0, dpToPixels(mContext, 8));
     }
 
-    public void addFilterOption(final int filterComplex, T filterId, String formatString, int count, int width, int leftMargin, int rightMargin, int upDownMargin) {
-        AutofitTextView autofitTextView = getModifiedTextView(filterComplex, filterId, width, leftMargin, rightMargin, upDownMargin);
-        mFilters.get(filterComplex).addNewFilterButton(new Option(filterId, formatString, autofitTextView, count));
+    /**
+     * Add a option to filter.
+     *
+     * @param filterNum    The filter number where you want to add an option.
+     * @param filterId     The unique ID you give to the option.
+     * @param formatString The display text format you will have on the option.
+     * @param count        The count of this option from the beginning.
+     * @param width        The width of this option.
+     * @param leftMargin   The margin to the left.
+     * @param rightMargin  The margin to the right.
+     * @param upDownMargin The margin to the up and down.
+     */
+    public void addFilterOption(final int filterNum, T filterId, String formatString, int count, int width, int leftMargin, int rightMargin, int upDownMargin) {
+        AutofitTextView autofitTextView = getModifiedTextView(filterNum, filterId, width, leftMargin, rightMargin, upDownMargin);
+        mFilters.get(filterNum).addNewFilterButton(new Option(filterId, formatString, autofitTextView, count));
 
         updateAllFilters();
     }
 
-    public void openFilterContainer() {
+    /**
+     * Open the Dropdown.
+     */
+    public void open() {
         openAllOpeningFilter();
     }
 
-    public void closeFilterContainer() {
+    /**
+     * Close the dropDown.
+     */
+    public void close() {
         closeAllOpeningFilter();
     }
 
     private void closeAllOpeningFilter() {
-        for (int i = 0; i < mCurrentOpeningComplex.size(); i++) {
-            closeAnim(mFilters.get(mCurrentOpeningComplex.get(i)).mContainer);
+        for (int i = 0; i < mCurrentOpeningFilters.size(); i++) {
+            closeAnim(mFilters.get(mCurrentOpeningFilters.get(i)).mContainer);
         }
     }
 
@@ -301,7 +452,7 @@ public class FlexibleFilter<T> extends LinearLayout {
 
     public void setFilterColCount(int colCount) {
         mFilterColCount = colCount;
-        setCurrentOpeningComplex(new ArrayList<>(mCurrentOpeningComplex));
+        setOpeningFilters(new ArrayList<>(mCurrentOpeningFilters));
     }
 
     public void setFilterOrientation(Orientation orientation) {
@@ -331,9 +482,10 @@ public class FlexibleFilter<T> extends LinearLayout {
         updateAllFilters();
     }
 
-    private boolean isComplexValid(List<Integer> openComplex) {
-        for (int i = 0; i < openComplex.size(); i++) {
-            if (mFilters.size() <= openComplex.get(i)) {
+    private boolean isFiltersValid(List<Integer> checkFilters) {
+        for (int i = 0; i < checkFilters.size(); i++) {
+            if (mFilters.size() <= checkFilters.get(i)) {
+                mFilterClickCallback.noSuchFilterError(checkFilters.get(i));
                 return false;
             }
         }
@@ -341,39 +493,39 @@ public class FlexibleFilter<T> extends LinearLayout {
     }
 
     private void hideAllOpeningContainer() {
-        for (int i = 0; i < mCurrentOpeningComplex.size(); i++) {
-            mFilters.get(mCurrentOpeningComplex.get(i)).setContainerVisible(false);
+        for (int i = 0; i < mCurrentOpeningFilters.size(); i++) {
+            mFilters.get(mCurrentOpeningFilters.get(i)).setContainerVisible(false);
         }
     }
 
-    private boolean isSelectedFilterOpening(int filterComplex) {
-        for (int i = 0; i < mCurrentOpeningComplex.size(); i++) {
-            if (mCurrentOpeningComplex.get(i) == filterComplex) return true;
+    private boolean isFilterOpening(int filterNum) {
+        for (int i = 0; i < mCurrentOpeningFilters.size(); i++) {
+            if (mCurrentOpeningFilters.get(i) == filterNum) return true;
         }
         return false;
     }
 
-    private void updateFilterComplex(int filterComplex) {
+    private void updateFilter(int filter) {
         if (mShouldHideZeroFilters) {
-            mFilters.get(filterComplex).hideZeroOptions();
+            mFilters.get(filter).hideZeroOptions();
         }
         if (!mShouldHideAll) {
-            mFilters.get(filterComplex).setOptionVisible(0, true);
-            mFilters.get(filterComplex).updateAll();
+            mFilters.get(filter).setOptionVisible(0, true);
+            mFilters.get(filter).updateAll();
         } else {
-            mFilters.get(filterComplex).setOptionVisible(0, false);
+            mFilters.get(filter).setOptionVisible(0, false);
         }
     }
 
-    public void openGenreSelectorLayout(int openFilterComplex) {
-        if (mFilters.get(openFilterComplex).getHeight() == 0) {
-            mFilters.get(openFilterComplex).setContainerVisible(true);
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            mFilters.get(openFilterComplex).mContainer.setLayoutParams(lp);
-            mFilters.get(openFilterComplex).readyToTakeHeight(true);
+    private void openGenreSelectorLayout(int openFilter) {
+        if (mFilters.get(openFilter).getHeight() == 0) {
+            mFilters.get(openFilter).setContainerVisible(true);
+//            ViewGroup.LayoutParams lp = new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+//            mFilters.get(openFilter).mContainer.setLayoutParams(lp);
+            mFilters.get(openFilter).readyToTakeHeight(true);
         } else {
-            mFilters.get(openFilterComplex).setContainerVisible(true);
-            ValueAnimator va = createDropAnim(mFilters.get(openFilterComplex).mContainer, 0, mFilters.get(openFilterComplex).getHeight());
+            mFilters.get(openFilter).setContainerVisible(true);
+            ValueAnimator va = createDropAnim(mFilters.get(openFilter).mContainer, 0, mFilters.get(openFilter).getHeight());
             va.start();
         }
 //        mOpenArrow.setVisibility(View.INVISIBLE);
@@ -384,7 +536,7 @@ public class FlexibleFilter<T> extends LinearLayout {
         int origHeight = view.getHeight();
         if (origHeight == 0) {
             view.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
-//            mFilters.get(mCurrentOpeningComplex).setFilterHeight(view.getMeasuredHeight());
+//            mFilters.get(mCurrentOpeningFilters).setFilterHeight(view.getMeasuredHeight());
             view.setVisibility(View.GONE);
         } else {
             ValueAnimator va = createDropAnim(view, origHeight, 0);
@@ -399,7 +551,7 @@ public class FlexibleFilter<T> extends LinearLayout {
         }
     }
 
-    private AutofitTextView getModifiedTextView(final int filterComplex, final T filterId, int width, int marginLeft, int marginRight, int marginUpAndDown) {
+    private AutofitTextView getModifiedTextView(final int filterNum, final T filterId, int width, int marginLeft, int marginRight, int marginUpAndDown) {
         width -= (marginLeft + marginRight);
 
         AutofitTextView autofitTextView = new AutofitTextView(mContext);
@@ -413,15 +565,15 @@ public class FlexibleFilter<T> extends LinearLayout {
         autofitTextView.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View view) {
-                optionSelect(filterComplex, filterId);
+                optionSelect(filterNum, filterId);
             }
         });
         return autofitTextView;
     }
 
     private void openAllOpeningFilter() {
-        for (int i = 0; i < mCurrentOpeningComplex.size(); i++) {
-            openGenreSelectorLayout(mCurrentOpeningComplex.get(i));
+        for (int i = 0; i < mCurrentOpeningFilters.size(); i++) {
+            openGenreSelectorLayout(mCurrentOpeningFilters.get(i));
         }
     }
 
@@ -440,6 +592,7 @@ public class FlexibleFilter<T> extends LinearLayout {
     }
 
     //region FilterHolder
+
     /**
      * Use to hold things we need for a filter.
      */
@@ -447,6 +600,8 @@ public class FlexibleFilter<T> extends LinearLayout {
         private List<Option> mOptions;
         private FlexboxLayout mContainer;
         private int mHeight = 0;
+
+        private boolean mIsRemoved = false;
 
         FilterHolder(List<Option> mOptions, FlexboxLayout mContainer) {
             this.mOptions = mOptions;
@@ -472,9 +627,9 @@ public class FlexibleFilter<T> extends LinearLayout {
             mOptions.get(0).setResultCount(sum);
         }
 
-        void setOptionVisible(int pos, boolean visible){
-            if(pos < mOptions.size()){
-                if(visible){
+        void setOptionVisible(int pos, boolean visible) {
+            if (pos < mOptions.size()) {
+                if (visible) {
                     mOptions.get(pos).getAutofitTextView().setVisibility(VISIBLE);
                 } else {
                     mOptions.get(pos).getAutofitTextView().setVisibility(GONE);
@@ -492,12 +647,9 @@ public class FlexibleFilter<T> extends LinearLayout {
             }
         }
 
-        void removeFilter(T filterId) {
-            for (int i = 0; i < mOptions.size(); i++) {
-                if (mOptions.get(i).getFilterId().equals(filterId)) {
-                    mOptions.remove(i);
-                }
-            }
+        void removeFilter() {
+            mContainer.setVisibility(GONE);
+            mIsRemoved = true;
         }
 
         void setOptionsDeco(T filterId) {
@@ -537,6 +689,7 @@ public class FlexibleFilter<T> extends LinearLayout {
         }
 
         void setContainerVisible(boolean visible) {
+            if (mIsRemoved) return;
             if (visible) {
                 mContainer.setVisibility(VISIBLE);
             } else {
@@ -563,6 +716,7 @@ public class FlexibleFilter<T> extends LinearLayout {
     //endregion
 
     //region Option.
+
     /**
      * Hold option variables we need.
      */
