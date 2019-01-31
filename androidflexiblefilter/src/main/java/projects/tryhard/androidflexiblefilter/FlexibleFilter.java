@@ -35,7 +35,7 @@ import java.util.Locale;
 
 /**
  * A class for filter, set up like this. For more detail and samples, go to {@see <a hreh="https://github.com/you55645/Android-Flex-Filter" >FlexibleFilter</a>}.
- * 1. If you use xml to set attributes or you want to use default values, you can use the {@link #init(Context, int, Object, FilterCallback)}. If you want to do the init settings through code, use {@link #init(Context, int, Object, int, boolean, boolean, Orientation, int, FilterCallback)}.
+ * 1. If you use xml to set attributes or you want to use default values, you can use the {@link #init(Context, int, Object, FilterCallback)}. If you want to do the init settings through code, use {@link #init(Context, int, Object, int, boolean, boolean, Orientation, int, boolean, boolean, FilterCallback)}.
  * --- Basic set up done, you can open up to see how it looks like.
  * 2. After init, you will have at least one filter, you can add filter later also, but if you only planning on using one. You can start to add options. (step 4).
  * 3. If you want to add more filters, use {@link #addFilter(Object, int)}.
@@ -474,6 +474,8 @@ public class FlexibleFilter<T> extends LinearLayout {
      */
     public void open() {
         openAllOpeningFilter();
+
+        mFilterContainer.requestFocus();
     }
 
     /**

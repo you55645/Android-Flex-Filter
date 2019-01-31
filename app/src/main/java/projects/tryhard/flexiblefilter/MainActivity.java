@@ -3,12 +3,17 @@ package projects.tryhard.flexiblefilter;
 import android.content.Context;
 import android.os.Bundle;
 import android.os.Handler;
+import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.AppCompatImageView;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.DisplayMetrics;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
@@ -30,6 +35,8 @@ public class MainActivity extends AppCompatActivity {
     Button mOpenFilter3Button;
     FlexibleFilter<String> mFilter4;
     List<Human> mHumanList;
+    RecyclerView mHumanRV;
+    HumanAdapter mHumanAdapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,15 +49,7 @@ public class MainActivity extends AppCompatActivity {
         mFilter3 = findViewById(R.id.filter3);
         mOpenFilter3Button = findViewById(R.id.filter3_open);
         mFilter4 = findViewById(R.id.filter4);
-
-        mHumanList = new ArrayList<>();
-        mHumanList.add(new Human("Tim", "Men", 17));
-        mHumanList.add(new Human("Dean", "Men", 24));
-        mHumanList.add(new Human("Sam", "Men", 36));
-        mHumanList.add(new Human("Flake", "Men", 38));
-        mHumanList.add(new Human("Nancy", "Women", 2));
-        mHumanList.add(new Human("Amy", "Women", 19));
-        mHumanList.add(new Human("Lily", "Women", 29));
+        mHumanRV = findViewById(R.id.filter4_rv);
 
         FlexibleFilter.OptionGetStringCallback<String> optionGetStringCallback1 = new FlexibleFilter.OptionGetStringCallback<String>() {
             @Override
@@ -82,7 +81,6 @@ public class MainActivity extends AppCompatActivity {
         mFilter1.addFilterOption(filter1filterNum, "B", 2, getScreenWidthPixel(this) / 3, optionGetStringCallback1);
         mFilter1.addFilterOption(filter1filterNum, "C", 3, getScreenWidthPixel(this) / 3, optionGetStringCallback1);
         //endregion
-
 
         //region Filter 2
         final FlexibleFilter.OptionGetStringCallback<String> optionGetStringCallback2 = new FlexibleFilter.OptionGetStringCallback<String>() {
@@ -237,13 +235,32 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                mFilter3.open();
+            }
+        }, 4000);
         editText.setOnFocusChangeListener(new View.OnFocusChangeListener() {
             @Override
             public void onFocusChange(View view, boolean b) {
-                if(b) mFilter3.open();
+                if (b) mFilter3.open();
             }
         });
         //endregion
+
+        mHumanList = new ArrayList<>();
+        mHumanList.add(new Human("Tim", "Men", 17));
+        mHumanList.add(new Human("Dean", "Men", 24));
+        mHumanList.add(new Human("Sam", "Men", 36));
+        mHumanList.add(new Human("Flake", "Men", 38));
+        mHumanList.add(new Human("Nancy", "Women", 2));
+        mHumanList.add(new Human("Amy", "Women", 19));
+        mHumanList.add(new Human("Lily", "Women", 29));
+
+        mHumanRV.setLayoutManager(new LinearLayoutManager(this));
+        mHumanAdapter = new HumanAdapter(this, mHumanList);
+        mHumanRV.setAdapter(mHumanAdapter);
 
         mFilter4.init(this, R.layout.filter_custom_title_for_4, "ALL", new FlexibleFilter.FilterCallback<String>() {
             private String currentFilter1Id = "";
@@ -254,8 +271,31 @@ public class MainActivity extends AppCompatActivity {
                 TextView title = titleView.findViewById(R.id.filter_title);
                 if (filterNum == 0) {
                     currentFilter1Id = filterId;
+                    List<Human> manLists = getSexList("Men");
+                    List<Human> womanLists = getSexList("Women");
+                    switch (filterId) {
+                        case "ALL":
+                            mFilter4.updateCertainOption(1, "0-20", get0To20Count(mHumanList));
+                            mFilter4.updateCertainOption(1, "20-", getAbove20Count(mHumanList));
+                            mHumanAdapter.replace(mHumanList);
+                            break;
+                        case "Men":
+                            mFilter4.updateCertainOption(1, "0-20", get0To20Count(manLists));
+                            mFilter4.updateCertainOption(1, "20-", getAbove20Count(manLists));
+                            mHumanAdapter.replace(manLists);
+                            break;
+                        case "Women":
+                            mFilter4.updateCertainOption(1, "0-20", get0To20Count(womanLists));
+                            mFilter4.updateCertainOption(1, "20-", getAbove20Count(womanLists));
+                            mHumanAdapter.replace(womanLists);
+                            break;
+                    }
                 } else if (filterNum == 1) {
                     currentFilter2Id = filterId;
+                    switch (filterId){
+                        "0-20"
+                        "20-"
+                    }
                 }
                 title.setText(String.format(Locale.CHINESE, "Filter1: %s, Filter2: %s", currentFilter1Id, currentFilter2Id));
             }
@@ -284,11 +324,20 @@ public class MainActivity extends AppCompatActivity {
             }
         };
 
-        mFilter4.addFilterOption(0, "Men", getMenCount(), getScreenWidthPixel(this) / 2, optionGetStringCallback4);
-        mFilter4.addFilterOption(0, "Women", getWomenCount(), getScreenWidthPixel(this) / 2, optionGetStringCallback4);
+        mFilter4.addFilterOption(0, "Men", getSexList("Men").size(), getScreenWidthPixel(this) / 2, optionGetStringCallback4);
+        mFilter4.addFilterOption(0, "Women", getSexList("Women").size(), getScreenWidthPixel(this) / 2, optionGetStringCallback4);
 
         mFilter4.addFilterOption(1, "0-20", get0To20Count(mHumanList), getScreenWidthPixel(this) / 2, optionGetStringCallback4);
         mFilter4.addFilterOption(1, "20-", getAbove20Count(mHumanList), getScreenWidthPixel(this) / 2, optionGetStringCallback4);
+
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                mFilter4.open();
+            }
+        }, 1000);
+
+        mFilter4.setShouldCloseAfterClick(false);
     }
 
     private void addAnOptionToFilter2(int count, FlexibleFilter.OptionGetStringCallback<String> optionGetStringCallback2) {
@@ -299,32 +348,26 @@ public class MainActivity extends AppCompatActivity {
         filter2ShowCount = !filter2ShowCount;
     }
 
-    private int getMenCount() {
-        int count = 0;
+    private List<Human> getSexList(String sex) {
+        List<Human> list = new ArrayList<>();
         for (int i = 0; i < mHumanList.size(); i++) {
-            if (mHumanList.get(i).getSex().equals("Men")) count++;
+            if (mHumanList.get(i).getSex().equals(sex)) list.add(mHumanList.get(i));
         }
-        return count;
+        return list;
     }
-    private int getWomenCount() {
+
+    private int get0To20Count(List<Human> humanList) {
         int count = 0;
-        for (int i = 0; i < mHumanList.size(); i++) {
-            if (mHumanList.get(i).getSex().equals("Women")) count++;
+        for (int i = 0; i < humanList.size(); i++) {
+            if (humanList.get(i).getAge() <= 20) count++;
         }
         return count;
     }
 
-    private int get0To20Count(List<Human> humanList){
+    private int getAbove20Count(List<Human> humanList) {
         int count = 0;
-        for(int i = 0 ; i < humanList.size();i++){
-            if(humanList.get(i).getAge() <= 20) count++;
-        }
-        return count;
-    }
-    private int getAbove20Count(List<Human> humanList){
-        int count = 0;
-        for(int i = 0 ; i < humanList.size();i++){
-            if(humanList.get(i).getAge() > 20) count++;
+        for (int i = 0; i < humanList.size(); i++) {
+            if (humanList.get(i).getAge() > 20) count++;
         }
         return count;
     }
@@ -353,6 +396,54 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    public class HumanAdapter extends RecyclerView.Adapter<HumanAdapter.ViewHolder> {
+        Context mContext;
+        List<Human> mHumanList;
+
+        public HumanAdapter(Context mContext, List<Human> mHumanList) {
+            this.mContext = mContext;
+            this.mHumanList = mHumanList;
+        }
+
+        public void replace(List<Human> newList){
+            mHumanList = newList;
+            notifyDataSetChanged();
+        }
+
+        @NonNull
+        @Override
+        public ViewHolder onCreateViewHolder(@NonNull ViewGroup viewGroup, int i) {
+            View view = LayoutInflater.from(mContext).inflate(R.layout.filter_item_for_4, viewGroup, false);
+            return new ViewHolder(view);
+        }
+
+        @Override
+        public void onBindViewHolder(@NonNull ViewHolder viewHolder, int i) {
+            Human human = mHumanList.get(i);
+            viewHolder.mName.setText(human.getName());
+            viewHolder.mSex.setText(human.getSex());
+            viewHolder.mAge.setText(human.getAge() + "");
+        }
+
+        @Override
+        public int getItemCount() {
+            return mHumanList.size();
+        }
+
+        public class ViewHolder extends RecyclerView.ViewHolder {
+            TextView mName;
+            TextView mSex;
+            TextView mAge;
+
+            public ViewHolder(@NonNull View itemView) {
+                super(itemView);
+
+                mName = itemView.findViewById(R.id.human_name);
+                mSex = itemView.findViewById(R.id.human_sex);
+                mAge = itemView.findViewById(R.id.human_age);
+            }
+        }
+    }
 
     private int getScreenWidthPixel(Context context) {
         DisplayMetrics displayMetrics = context.getResources().getDisplayMetrics();
