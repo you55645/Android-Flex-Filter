@@ -13,6 +13,8 @@
     <declare-styleable name="FlexibleFilter">
         <attr name="shouldHideZeroFilters" format="boolean" />
         <attr name="shouldHideAll" format="boolean" />
+        <attr name="shouldCloseAfterClick" format="boolean" />
+        <attr name="changeColorWhenSelect" format="boolean" />
         <attr name="colCount" format="integer" />
         <attr name="orientation" format="enum" >
             <enum name="vertical" value="0" />
