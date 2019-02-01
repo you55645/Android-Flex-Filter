@@ -2,7 +2,6 @@ package projects.tryhard.flexiblefilter;
 
 import android.content.Context;
 import android.os.Bundle;
-import android.os.Handler;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.AppCompatImageView;
@@ -22,8 +21,10 @@ import android.widget.Toast;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Random;
 
+import projects.tryhard.androidflexiblefilter.FilterHolder;
 import projects.tryhard.androidflexiblefilter.FlexibleFilter;
 
 public class MainActivity extends AppCompatActivity {
@@ -62,11 +63,10 @@ public class MainActivity extends AppCompatActivity {
 
         //region Filter 1
         int filter1filterNum = 0;
-        mFilter1.init(this, filter1filterNum, 0, "ALL", new FlexibleFilter.FilterCallback<String>() {
+        mFilter1.init(this, filter1filterNum, 0, "ALL", new FlexibleFilter.FilterErrorCallback() {
             @Override
-            public void filterOptionClicked(View titleView, int filterNum, String filterId) {
-                TextView title = titleView.findViewById(R.id.filter_title);
-                title.setText("Current selecting: " + filterId);
+            public void noSuchFilterError(int notExistFilterNum) {
+
             }
 
             @Override
@@ -75,12 +75,21 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
-            public void filterUnSelectedAll(int filterNum) {
+            public void castFailed() {
 
+            }
+        });
+
+
+        mFilter1.getFilter(filter1filterNum, String.class).setFilterClickCallback(new FlexibleFilter.FilterClickCallback<String>() {
+            @Override
+            public void filterOptionClicked(int filterNum, String filterId) {
+                TextView title = mFilter1.getTitleView().findViewById(R.id.filter_title);
+                title.setText("Current selecting: " + filterId);
             }
 
             @Override
-            public void noSuchFilterError(int notExistFilterNum) {
+            public void filterUnSelectedAll(int filterNum) {
 
             }
         });
@@ -104,9 +113,28 @@ public class MainActivity extends AppCompatActivity {
         };
 
         final int filter2filterNum = 0;
-        mFilter2.init(this, filter2filterNum, R.layout.filter_custom_title_for_2, "ALL", new FlexibleFilter.FilterCallback<String>() {
+
+        mFilter2.init(this, filter2filterNum, R.layout.filter_custom_title_for_2, "ALL", new FlexibleFilter.FilterErrorCallback() {
+
             @Override
-            public void filterOptionClicked(View titleView, int filterNum, String filterId) {
+            public void filterOptionNotExistError() {
+
+            }
+
+            @Override
+            public void noSuchFilterError(int notExistFilterNum) {
+
+            }
+
+            @Override
+            public void castFailed() {
+
+            }
+        });
+        mFilter2.getFilter(filter2filterNum, String.class).setFilterClickCallback(new FlexibleFilter.FilterClickCallback<String>() {
+            @Override
+            public void filterOptionClicked(int filterNum, String filterId) {
+                View titleView = mFilter2.getTitleView();
                 switch (filterId) {
                     case "ToggleTitle":
                         if (titleView.getVisibility() == View.GONE) {
@@ -137,20 +165,11 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
-            public void filterOptionNotExistError() {
-
-            }
-
-            @Override
             public void filterUnSelectedAll(int filterNum) {
 
             }
-
-            @Override
-            public void noSuchFilterError(int notExistFilterNum) {
-
-            }
         });
+
         mFilter2.getTitleView().setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -187,25 +206,33 @@ public class MainActivity extends AppCompatActivity {
         };
 
         final int filter3filterNum = 0;
-        mFilter3.init(this, filter3filterNum, R.layout.filter_custom_title_for_3, "ALL", -1, true, true, FlexibleFilter.Orientation.HORIZONTAL, -1, false, false, new FlexibleFilter.FilterCallback<String>() {
+        mFilter3.init(this, filter3filterNum, R.layout.filter_custom_title_for_3, "ALL", -1, true,
+                true, FlexibleFilter.Orientation.HORIZONTAL, -1, false,
+                false, new FlexibleFilter.FilterErrorCallback() {
+                    @Override
+                    public void filterOptionNotExistError() {
+
+                    }
+
+                    @Override
+                    public void castFailed() {
+
+                    }
+
+                    @Override
+                    public void noSuchFilterError(int notExistFilterNum) {
+
+                    }
+                });
+        mFilter3.getFilter(filter3filterNum, String.class).setFilterClickCallback(new FlexibleFilter.FilterClickCallback<String>() {
             @Override
-            public void filterOptionClicked(View titleView, int filterNum, String filterId) {
-                EditText editText = titleView.findViewById(R.id.filter3_searchbar);
+            public void filterOptionClicked(int filterNum, String filterId) {
+                EditText editText = mFilter3.getTitleView().findViewById(R.id.filter3_searchbar);
                 editText.setText(filterId);
             }
 
             @Override
-            public void filterOptionNotExistError() {
-
-            }
-
-            @Override
             public void filterUnSelectedAll(int filterNum) {
-
-            }
-
-            @Override
-            public void noSuchFilterError(int notExistFilterNum) {
 
             }
         });
@@ -235,13 +262,14 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void afterTextChanged(Editable editable) {
-                List<String> filter3AllFilterIds = mFilter3.getAllFilterIdsInFilterNum(filter3filterNum);
+                FilterHolder<String> filterHolder = mFilter3.getFilter(filter3filterNum, String.class);
+                List<String> filter3AllFilterIds = filterHolder.getAllFilterIds();
                 String key = editable.toString().toUpperCase();
                 for (int i = 0; i < filter3AllFilterIds.size(); i++) {
                     if (!filter3AllFilterIds.get(i).contains(key)) {
-                        mFilter3.updateCertainOption(filter3filterNum, filter3AllFilterIds.get(i), 0);
+                        mFilter3.updateCertainOption(filterHolder, filter3AllFilterIds.get(i), 0);
                     } else {
-                        mFilter3.updateCertainOption(filter3filterNum, filter3AllFilterIds.get(i), 1);
+                        mFilter3.updateCertainOption(filterHolder, filter3AllFilterIds.get(i), 1);
                     }
                 }
             }
@@ -303,45 +331,63 @@ public class MainActivity extends AppCompatActivity {
         final int filter4_1filterNum = 0;
         final int filter4_2filterNum = 1;
 
-        mFilter4.init(this, filter4_1filterNum, R.layout.filter_custom_title_for_4, "ALL", new FlexibleFilter.FilterCallback<String>() {
+        mFilter4.init(this, filter4_1filterNum, R.layout.filter_custom_title_for_4, "ALL", new FlexibleFilter.FilterErrorCallback() {
+            @Override
+            public void filterOptionNotExistError() {
+
+            }
+
+            @Override
+            public void castFailed() {
+
+            }
+
+            @Override
+            public void noSuchFilterError(int notExistFilterNum) {
+
+            }
+        });
+
+        FlexibleFilter.FilterClickCallback<String> callback = new FlexibleFilter.FilterClickCallback<String>() {
             private String currentFilter1Id = "";
             private String currentFilter2Id = "";
-
             private List<Human> currentList = mHumanList;
-
             TextView title;
 
             @Override
-            public void filterOptionClicked(View titleView, int filterNum, String filterId) {
-                title = titleView.findViewById(R.id.filter_title);
+            public void filterOptionClicked(int filterNum, String filterId) {
+                title = mFilter4.getTitleView().findViewById(R.id.filter_title);
                 if (filterNum == filter4_1filterNum) {
+
+                    FilterHolder<String> filterHolder1 = mFilter4.getFilter(filter4_1filterNum, String.class);
+                    FilterHolder<String> filterHolder2 = mFilter4.getFilter(filter4_2filterNum, String.class);
 
                     List<Human> manLists = getSexList("Men");
                     List<Human> womanLists = getSexList("Women");
                     switch (filterId) {
                         case "ALL":
                             currentList = new ArrayList<>(mHumanList);
-                            mFilter4.updateCertainOption(filter4_2filterNum, "0-20", get0To20List(currentList).size());
-                            mFilter4.updateCertainOption(filter4_2filterNum, "20-", getAbove20List(currentList).size());
+                            mFilter4.updateCertainOption(filterHolder2, "0-20", get0To20List(currentList).size());
+                            mFilter4.updateCertainOption(filterHolder2, "20-", getAbove20List(currentList).size());
                             mHumanAdapter.replace(currentList);
                             break;
                         case "Men":
                             currentList = new ArrayList<>(manLists);
-                            mFilter4.updateCertainOption(filter4_2filterNum, "0-20", get0To20List(currentList).size());
-                            mFilter4.updateCertainOption(filter4_2filterNum, "20-", getAbove20List(currentList).size());
+                            mFilter4.updateCertainOption(filterHolder2, "0-20", get0To20List(currentList).size());
+                            mFilter4.updateCertainOption(filterHolder2, "20-", getAbove20List(currentList).size());
                             mHumanAdapter.replace(currentList);
                             break;
                         case "Women":
                             currentList = new ArrayList<>(womanLists);
-                            mFilter4.updateCertainOption(filter4_2filterNum, "0-20", get0To20List(currentList).size());
-                            mFilter4.updateCertainOption(filter4_2filterNum, "20-", getAbove20List(currentList).size());
+                            mFilter4.updateCertainOption(filterHolder2, "0-20", get0To20List(currentList).size());
+                            mFilter4.updateCertainOption(filterHolder2, "20-", getAbove20List(currentList).size());
                             mHumanAdapter.replace(currentList);
                             break;
                     }
 
                     if(currentFilter1Id != filterId){
                         // If user click a different option with current option, refresh filter on the right.
-                        mFilter4.optionSelect(filter4_2filterNum, null);
+                        mFilter4.optionSelect(filterHolder2, null);
                     }
 
                     currentFilter1Id = filterId;
@@ -367,11 +413,6 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
-            public void filterOptionNotExistError() {
-
-            }
-
-            @Override
             public void filterUnSelectedAll(int filterNum) {
                 if(filterNum == filter4_2filterNum){
                     currentFilter2Id = "";
@@ -380,12 +421,10 @@ public class MainActivity extends AppCompatActivity {
                 title.setText(String.format(Locale.CHINESE, "Filter1: %s, Filter2: %s", currentFilter1Id, currentFilter2Id));
             }
 
-            @Override
-            public void noSuchFilterError(int notExistFilterNum) {
-
-            }
-        });
+        };
         mFilter4.addFilter(filter4_2filterNum, "ALL", -1);
+        mFilter4.getFilter(filter4_1filterNum, String.class).setFilterClickCallback(callback);
+        mFilter4.getFilter(filter4_2filterNum, String.class).setFilterClickCallback(callback);
         mFilter4.setFilterColCount(2);
         mFilter4.setOpeningFilters(new ArrayList<Integer>() {{
             add(filter4_1filterNum);
@@ -412,7 +451,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void addAnOptionToFilter2(int count, FlexibleFilter.OptionGetStringCallback<String> optionGetStringCallback2) {
-        mFilter2.addFilterOption(0, (mFilter2.getAllFilterIdsInFilterNum(0).size() - 6) + "", count, getScreenWidthPixel(this) / 3, optionGetStringCallback2);
+        mFilter2.addFilterOption(0, (mFilter2.getFilter(0, String.class).getAllFilterIds().size() - 6) + "", count, getScreenWidthPixel(this) / 3, optionGetStringCallback2);
     }
 
     private void toggleFilter2ShouldShowCount() {
@@ -516,7 +555,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private int randomNumberGenerator(){
+    private int randomNumberGenerator() {
         Random r = new Random();
         return r.nextInt(40);
     }
