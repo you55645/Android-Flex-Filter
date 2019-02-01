@@ -22,6 +22,7 @@ import android.widget.Toast;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Random;
 
 import projects.tryhard.androidflexiblefilter.FlexibleFilter;
 
@@ -60,7 +61,8 @@ public class MainActivity extends AppCompatActivity {
 
 
         //region Filter 1
-        int filter1filterNum = mFilter1.init(this, 0, "ALL", new FlexibleFilter.FilterCallback<String>() {
+        int filter1filterNum = 0;
+        mFilter1.init(this, filter1filterNum, 0, "ALL", new FlexibleFilter.FilterCallback<String>() {
             @Override
             public void filterOptionClicked(View titleView, int filterNum, String filterId) {
                 TextView title = titleView.findViewById(R.id.filter_title);
@@ -73,6 +75,11 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
+            public void filterUnSelectedAll(int filterNum) {
+
+            }
+
+            @Override
             public void noSuchFilterError(int notExistFilterNum) {
 
             }
@@ -80,6 +87,7 @@ public class MainActivity extends AppCompatActivity {
         mFilter1.addFilterOption(filter1filterNum, "A", 1, getScreenWidthPixel(this) / 3, optionGetStringCallback1);
         mFilter1.addFilterOption(filter1filterNum, "B", 2, getScreenWidthPixel(this) / 3, optionGetStringCallback1);
         mFilter1.addFilterOption(filter1filterNum, "C", 3, getScreenWidthPixel(this) / 3, optionGetStringCallback1);
+
         //endregion
 
         //region Filter 2
@@ -95,7 +103,8 @@ public class MainActivity extends AppCompatActivity {
 
         };
 
-        final int filter2filterNum = mFilter2.init(this, R.layout.filter_custom_title_for_2, "ALL", new FlexibleFilter.FilterCallback<String>() {
+        final int filter2filterNum = 0;
+        mFilter2.init(this, filter2filterNum, R.layout.filter_custom_title_for_2, "ALL", new FlexibleFilter.FilterCallback<String>() {
             @Override
             public void filterOptionClicked(View titleView, int filterNum, String filterId) {
                 switch (filterId) {
@@ -129,6 +138,11 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void filterOptionNotExistError() {
+
+            }
+
+            @Override
+            public void filterUnSelectedAll(int filterNum) {
 
             }
 
@@ -172,7 +186,8 @@ public class MainActivity extends AppCompatActivity {
 
         };
 
-        final int filter3filterNum = mFilter3.init(this, R.layout.filter_custom_title_for_3, "ALL", -1, true, true, FlexibleFilter.Orientation.HORIZONTAL, -1, false, false, new FlexibleFilter.FilterCallback<String>() {
+        final int filter3filterNum = 0;
+        mFilter3.init(this, filter3filterNum, R.layout.filter_custom_title_for_3, "ALL", -1, true, true, FlexibleFilter.Orientation.HORIZONTAL, -1, false, false, new FlexibleFilter.FilterCallback<String>() {
             @Override
             public void filterOptionClicked(View titleView, int filterNum, String filterId) {
                 EditText editText = titleView.findViewById(R.id.filter3_searchbar);
@@ -181,6 +196,11 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void filterOptionNotExistError() {
+
+            }
+
+            @Override
+            public void filterUnSelectedAll(int filterNum) {
 
             }
 
@@ -215,7 +235,7 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void afterTextChanged(Editable editable) {
-                List<String> filter3AllFilterIds = mFilter3.getAllFilters(filter3filterNum);
+                List<String> filter3AllFilterIds = mFilter3.getAllFilterIdsInFilterNum(filter3filterNum);
                 String key = editable.toString().toUpperCase();
                 for (int i = 0; i < filter3AllFilterIds.size(); i++) {
                     if (!filter3AllFilterIds.get(i).contains(key)) {
@@ -235,12 +255,8 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        new Handler().postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                mFilter3.open();
-            }
-        }, 4000);
+        mFilter3.open();
+
         editText.setOnFocusChangeListener(new View.OnFocusChangeListener() {
             @Override
             public void onFocusChange(View view, boolean b) {
@@ -249,52 +265,102 @@ public class MainActivity extends AppCompatActivity {
         });
         //endregion
 
+        //region Filter 4
         mHumanList = new ArrayList<>();
-        mHumanList.add(new Human("Tim", "Men", 17));
-        mHumanList.add(new Human("Dean", "Men", 24));
-        mHumanList.add(new Human("Sam", "Men", 36));
-        mHumanList.add(new Human("Flake", "Men", 38));
-        mHumanList.add(new Human("Nancy", "Women", 2));
-        mHumanList.add(new Human("Amy", "Women", 19));
-        mHumanList.add(new Human("Lily", "Women", 29));
+        mHumanList.add(new Human("Tim", "Men", randomNumberGenerator()));
+        mHumanList.add(new Human("Dean", "Men", randomNumberGenerator()));
+        mHumanList.add(new Human("Sam", "Men", randomNumberGenerator()));
+        mHumanList.add(new Human("Flake", "Men", randomNumberGenerator()));
+        mHumanList.add(new Human("Nancy", "Women", randomNumberGenerator()));
+        mHumanList.add(new Human("Amy", "Women", randomNumberGenerator()));
+        mHumanList.add(new Human("Lily", "Women", randomNumberGenerator()));
+        mHumanList.add(new Human("Boyd Soto", "Men", randomNumberGenerator()));
+        mHumanList.add(new Human("Jay Parsons", "Men", randomNumberGenerator()));
+        mHumanList.add(new Human("Irvin Floyd", "Men", randomNumberGenerator()));
+        mHumanList.add(new Human("Russell Rodgers", "Men", randomNumberGenerator()));
+        mHumanList.add(new Human("Darren	 Lyons", "Men", randomNumberGenerator()));
+        mHumanList.add(new Human("Steve Kennedy", "Men", randomNumberGenerator()));
+        mHumanList.add(new Human("Salvatore Kelley", "Men", randomNumberGenerator()));
+        mHumanList.add(new Human("Ian Mitchell", "Men", randomNumberGenerator()));
+        mHumanList.add(new Human("Van Griffith", "Men", randomNumberGenerator()));
+        mHumanList.add(new Human("Arturo Matthews", "Men", randomNumberGenerator()));
+        mHumanList.add(new Human("Tabitha Hunt", "Women", randomNumberGenerator()));
+        mHumanList.add(new Human("Melissa Oliver", "Women", randomNumberGenerator()));
+        mHumanList.add(new Human("Alberta Kennedy", "Women", randomNumberGenerator()));
+        mHumanList.add(new Human("Christie Burton", "Women", randomNumberGenerator()));
+        mHumanList.add(new Human("Kristin Cook", "Women", randomNumberGenerator()));
+        mHumanList.add(new Human("Sheryl	 Singleton", "Women", randomNumberGenerator()));
+        mHumanList.add(new Human("Lorraine Fleming", "Women", randomNumberGenerator()));
+        mHumanList.add(new Human("Thelma Banks", "Women", randomNumberGenerator()));
+        mHumanList.add(new Human("Bethany Payne", "Women", randomNumberGenerator()));
+        mHumanList.add(new Human("Maureen Kelley", "Women", randomNumberGenerator()));
+
 
         mHumanRV.setLayoutManager(new LinearLayoutManager(this));
         mHumanAdapter = new HumanAdapter(this, mHumanList);
         mHumanRV.setAdapter(mHumanAdapter);
 
-        mFilter4.init(this, R.layout.filter_custom_title_for_4, "ALL", new FlexibleFilter.FilterCallback<String>() {
+        final int filter4_1filterNum = 0;
+        final int filter4_2filterNum = 1;
+
+        mFilter4.init(this, filter4_1filterNum, R.layout.filter_custom_title_for_4, "ALL", new FlexibleFilter.FilterCallback<String>() {
             private String currentFilter1Id = "";
             private String currentFilter2Id = "";
 
+            private List<Human> currentList = mHumanList;
+
+            TextView title;
+
             @Override
             public void filterOptionClicked(View titleView, int filterNum, String filterId) {
-                TextView title = titleView.findViewById(R.id.filter_title);
-                if (filterNum == 0) {
-                    currentFilter1Id = filterId;
+                title = titleView.findViewById(R.id.filter_title);
+                if (filterNum == filter4_1filterNum) {
+
                     List<Human> manLists = getSexList("Men");
                     List<Human> womanLists = getSexList("Women");
                     switch (filterId) {
                         case "ALL":
-                            mFilter4.updateCertainOption(1, "0-20", get0To20Count(mHumanList));
-                            mFilter4.updateCertainOption(1, "20-", getAbove20Count(mHumanList));
-                            mHumanAdapter.replace(mHumanList);
+                            currentList = new ArrayList<>(mHumanList);
+                            mFilter4.updateCertainOption(filter4_2filterNum, "0-20", get0To20List(currentList).size());
+                            mFilter4.updateCertainOption(filter4_2filterNum, "20-", getAbove20List(currentList).size());
+                            mHumanAdapter.replace(currentList);
                             break;
                         case "Men":
-                            mFilter4.updateCertainOption(1, "0-20", get0To20Count(manLists));
-                            mFilter4.updateCertainOption(1, "20-", getAbove20Count(manLists));
-                            mHumanAdapter.replace(manLists);
+                            currentList = new ArrayList<>(manLists);
+                            mFilter4.updateCertainOption(filter4_2filterNum, "0-20", get0To20List(currentList).size());
+                            mFilter4.updateCertainOption(filter4_2filterNum, "20-", getAbove20List(currentList).size());
+                            mHumanAdapter.replace(currentList);
                             break;
                         case "Women":
-                            mFilter4.updateCertainOption(1, "0-20", get0To20Count(womanLists));
-                            mFilter4.updateCertainOption(1, "20-", getAbove20Count(womanLists));
-                            mHumanAdapter.replace(womanLists);
+                            currentList = new ArrayList<>(womanLists);
+                            mFilter4.updateCertainOption(filter4_2filterNum, "0-20", get0To20List(currentList).size());
+                            mFilter4.updateCertainOption(filter4_2filterNum, "20-", getAbove20List(currentList).size());
+                            mHumanAdapter.replace(currentList);
                             break;
                     }
-                } else if (filterNum == 1) {
+
+                    if(currentFilter1Id != filterId){
+                        // If user click a different option with current option, refresh filter on the right.
+                        mFilter4.optionSelect(filter4_2filterNum, null);
+                    }
+
+                    currentFilter1Id = filterId;
+
+                } else if (filterNum == filter4_2filterNum) {
                     currentFilter2Id = filterId;
-                    switch (filterId){
-                        "0-20"
-                        "20-"
+
+                    List<Human> year0To20Human = get0To20List(currentList);
+                    List<Human> yearAbove20Human = getAbove20List(currentList);
+                    switch (filterId) {
+                        case "ALL":
+                            mHumanAdapter.replace(currentList);
+                            break;
+                        case "0-20":
+                            mHumanAdapter.replace(year0To20Human);
+                            break;
+                        case "20-":
+                            mHumanAdapter.replace(yearAbove20Human);
+                            break;
                     }
                 }
                 title.setText(String.format(Locale.CHINESE, "Filter1: %s, Filter2: %s", currentFilter1Id, currentFilter2Id));
@@ -306,15 +372,24 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
+            public void filterUnSelectedAll(int filterNum) {
+                if(filterNum == filter4_2filterNum){
+                    currentFilter2Id = "";
+                    mHumanAdapter.replace(currentList);
+                }
+                title.setText(String.format(Locale.CHINESE, "Filter1: %s, Filter2: %s", currentFilter1Id, currentFilter2Id));
+            }
+
+            @Override
             public void noSuchFilterError(int notExistFilterNum) {
 
             }
         });
-        mFilter4.addFilter("ALL", -1);
+        mFilter4.addFilter(filter4_2filterNum, "ALL", -1);
         mFilter4.setFilterColCount(2);
         mFilter4.setOpeningFilters(new ArrayList<Integer>() {{
-            add(0);
-            add(1);
+            add(filter4_1filterNum);
+            add(filter4_2filterNum);
         }});
 
         FlexibleFilter.OptionGetStringCallback<String> optionGetStringCallback4 = new FlexibleFilter.OptionGetStringCallback<String>() {
@@ -324,24 +399,20 @@ public class MainActivity extends AppCompatActivity {
             }
         };
 
-        mFilter4.addFilterOption(0, "Men", getSexList("Men").size(), getScreenWidthPixel(this) / 2, optionGetStringCallback4);
-        mFilter4.addFilterOption(0, "Women", getSexList("Women").size(), getScreenWidthPixel(this) / 2, optionGetStringCallback4);
+        mFilter4.addFilterOption(filter4_1filterNum, "Men", getSexList("Men").size(), getScreenWidthPixel(this) / 2, optionGetStringCallback4);
+        mFilter4.addFilterOption(filter4_1filterNum, "Women", getSexList("Women").size(), getScreenWidthPixel(this) / 2, optionGetStringCallback4);
 
-        mFilter4.addFilterOption(1, "0-20", get0To20Count(mHumanList), getScreenWidthPixel(this) / 2, optionGetStringCallback4);
-        mFilter4.addFilterOption(1, "20-", getAbove20Count(mHumanList), getScreenWidthPixel(this) / 2, optionGetStringCallback4);
+        mFilter4.addFilterOption(filter4_2filterNum, "0-20", get0To20List(mHumanList).size(), getScreenWidthPixel(this) / 2, optionGetStringCallback4);
+        mFilter4.addFilterOption(filter4_2filterNum, "20-", getAbove20List(mHumanList).size(), getScreenWidthPixel(this) / 2, optionGetStringCallback4);
 
-        new Handler().postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                mFilter4.open();
-            }
-        }, 1000);
+        mFilter4.open();
 
         mFilter4.setShouldCloseAfterClick(false);
+        //endregion
     }
 
     private void addAnOptionToFilter2(int count, FlexibleFilter.OptionGetStringCallback<String> optionGetStringCallback2) {
-        mFilter2.addFilterOption(0, (mFilter2.getAllFilters(0).size() - 6) + "", count, getScreenWidthPixel(this) / 3, optionGetStringCallback2);
+        mFilter2.addFilterOption(0, (mFilter2.getAllFilterIdsInFilterNum(0).size() - 6) + "", count, getScreenWidthPixel(this) / 3, optionGetStringCallback2);
     }
 
     private void toggleFilter2ShouldShowCount() {
@@ -356,20 +427,20 @@ public class MainActivity extends AppCompatActivity {
         return list;
     }
 
-    private int get0To20Count(List<Human> humanList) {
-        int count = 0;
+    private List<Human> get0To20List(List<Human> humanList) {
+        List<Human> list = new ArrayList<>();
         for (int i = 0; i < humanList.size(); i++) {
-            if (humanList.get(i).getAge() <= 20) count++;
+            if (humanList.get(i).getAge() <= 20) list.add(humanList.get(i));
         }
-        return count;
+        return list;
     }
 
-    private int getAbove20Count(List<Human> humanList) {
-        int count = 0;
+    private List<Human> getAbove20List(List<Human> humanList) {
+        List<Human> list = new ArrayList<>();
         for (int i = 0; i < humanList.size(); i++) {
-            if (humanList.get(i).getAge() > 20) count++;
+            if (humanList.get(i).getAge() > 20) list.add(humanList.get(i));
         }
-        return count;
+        return list;
     }
 
     private class Human {
@@ -405,7 +476,7 @@ public class MainActivity extends AppCompatActivity {
             this.mHumanList = mHumanList;
         }
 
-        public void replace(List<Human> newList){
+        public void replace(List<Human> newList) {
             mHumanList = newList;
             notifyDataSetChanged();
         }
@@ -443,6 +514,11 @@ public class MainActivity extends AppCompatActivity {
                 mAge = itemView.findViewById(R.id.human_age);
             }
         }
+    }
+
+    private int randomNumberGenerator(){
+        Random r = new Random();
+        return r.nextInt(40);
     }
 
     private int getScreenWidthPixel(Context context) {

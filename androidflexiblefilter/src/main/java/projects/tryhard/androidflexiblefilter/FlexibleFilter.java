@@ -14,6 +14,7 @@ import android.support.annotation.RequiresApi;
 import android.support.v4.content.ContextCompat;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -32,13 +33,16 @@ import com.google.android.flexbox.JustifyContent;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 /**
  * A class for filter, set up like this. For more detail and samples, go to {@see <a hreh="https://github.com/you55645/Android-Flex-Filter" >FlexibleFilter</a>}.
- * 1. If you use xml to set attributes or you want to use default values, you can use the {@link #init(Context, int, Object, FilterCallback)}. If you want to do the init settings through code, use {@link #init(Context, int, Object, int, boolean, boolean, Orientation, int, boolean, boolean, FilterCallback)}.
+ * 1. If you use xml to set attributes or you want to use default values, you can use the {@link #init(Context, int, int, Object, FilterCallback)}. If you want to do the init settings through code, use {@link #init(Context, int, int, Object, int, boolean, boolean, Orientation, int, boolean, boolean, FilterCallback)}.
  * --- Basic set up done, you can open up to see how it looks like.
  * 2. After init, you will have at least one filter, you can add filter later also, but if you only planning on using one. You can start to add options. (step 4).
- * 3. If you want to add more filters, use {@link #addFilter(Object, int)}.
+ * 3. If you want to add more filters, use {@link #addFilter(int, Object, int)}.
  * 4. Adding options to filter you want to add by {@link #addFilterOption(int, Object, int, int, OptionGetStringCallback)}  or {@link #addFilterOption(int, Object, int, int, int, int, int, , OptionGetStringCallback)}.
  * 5. If you want to update certain option from certain filter, use {@link #updateCertainOption(int, Object, int)}. If you want to update all, use {@link #updateAllFilters()}.
  * --- Set up done.
@@ -112,18 +116,18 @@ public class FlexibleFilter<T> extends LinearLayout {
     private boolean mShouldCloseAfterClick = true;
 
     /**
-     *  A variable to decide when option select, change its' color or not.
+     * A variable to decide when option select, change its' color or not.
      */
     private boolean mChangeColorWhenSelect = true;
 
     /**
-     * Callback when option being pressed or called @link #optionSelect(int filterNum, T filterId)
+     * Callback when option being pressed or called @link #optionSelect(int mFilterNum, T filterId)
      *
      * @param <T> T should be unique so you can used it to find out which option user select.
      */
     public interface FilterCallback<T> {
         /**
-         * Call when option being pressed or called @link #optionSelect(int filterNum, T filterId)
+         * Call when option being pressed or called @link #optionSelect(int mFilterNum, T filterId)
          *
          * @param titleView The title view you passed in when init.
          * @param filterNum Let you know which filter user select.
@@ -135,6 +139,11 @@ public class FlexibleFilter<T> extends LinearLayout {
          * Get called when you select an non-exist option.
          */
         void filterOptionNotExistError();
+
+        /**
+         * Get called when you unSelect all option in a filter by calling {@link #optionSelect(int, Object)} with a null parameter on filterId.
+         */
+        void filterUnSelectedAll(int filterNum);
 
         /**
          * Get called when is no FilterNum match that.
@@ -206,6 +215,7 @@ public class FlexibleFilter<T> extends LinearLayout {
      * Use to init the whole filter with more detail.
      *
      * @param context            We use to inflate layouts.
+     * @param filterNum          A number for default filter, use it when you want to update, show or hide certain filter.
      * @param titleLayout        The title you want for the filter, -1 means no title, 0 means default title.
      * @param allT               A unique ID for the default all option.
      * @param emptyDefaultLayout A default Empty Layout, -1 means use default.
@@ -214,10 +224,9 @@ public class FlexibleFilter<T> extends LinearLayout {
      * @param orientation        The mOrientation of the filters' layout.
      * @param colCount           How many filters we show at one row. Default is one.
      * @param filterCallback     Callbacks when option being pressed or called @link #optionSelect(int filterComplex, T filterId), or error happens.
-     * @return A number for default filter, use it when you want to update, show or hide certain filter.
      */
-    public int init(Context context, @LayoutRes int titleLayout, final T allT, @LayoutRes int emptyDefaultLayout, boolean hideAll, boolean hideZeroFilters, Orientation orientation, int colCount, boolean shouldCloseAfterClick, boolean changeColorWhenSelect, FilterCallback<T> filterCallback) {
-        int filterNum = init(context, titleLayout, allT, filterCallback);
+    public void init(Context context, int filterNum, @LayoutRes int titleLayout, final T allT, @LayoutRes int emptyDefaultLayout, boolean hideAll, boolean hideZeroFilters, Orientation orientation, int colCount, boolean shouldCloseAfterClick, boolean changeColorWhenSelect, FilterCallback<T> filterCallback) {
+        init(context, filterNum, titleLayout, allT, filterCallback);
 
         setShouldHideZeroFilters(hideZeroFilters);
         setShouldHideAll(hideAll);
@@ -232,19 +241,18 @@ public class FlexibleFilter<T> extends LinearLayout {
             mDefaultEmptyViewLayout = R.layout.filter_default_empty_view;
         }
 
-        return filterNum;
     }
 
     /**
      * Use to init the whole filter with default.
      *
      * @param context        We use to inflate layouts.
+     * @param filterNum      A number for default filter, use it when you want to update, show or hide certain filter.
      * @param titleLayout    The title you want for the filter, -1 means no title, 0 means default title.
      * @param allT           A unique ID for the default all option.
      * @param filterCallback Callbacks when option being pressed or called @link #optionSelect(int filterComplex, T filterId), or error happens.
-     * @return A number for default filter, use it when you want to update, show or hide certain filter.
      */
-    public int init(Context context, @LayoutRes int titleLayout, final T allT, FilterCallback<T> filterCallback) {
+    public void init(Context context, int filterNum, @LayoutRes int titleLayout, final T allT, FilterCallback<T> filterCallback) {
         inflate(getContext(), R.layout.filter_layout, this);
         mFilterCallback = filterCallback;
         mContext = context;
@@ -278,21 +286,20 @@ public class FlexibleFilter<T> extends LinearLayout {
 
         mFilters = new ArrayList<>();
 
-        addFilter(allT, -1);
+        addFilter(filterNum, allT, -1);
 
         mCurrentOpeningFilters.add(0);
 
         setFilterOrientation(mOrientation);
-        return 0;
     }
     //endregion
 
     /**
+     * @param filterNum       A number for default filter, use it when you want to update, show or hide certain filter.
      * @param defaultT        A unique ID for the default all option.
      * @param emptyViewLayout A view to display when no option are shown. -1 means default emptyView.
-     * @return A number for this filter, use it when you want to update, show or hide certain filter.
      */
-    public int addFilter(final T defaultT, @LayoutRes int emptyViewLayout) {
+    public void addFilter(int filterNum, final T defaultT, @LayoutRes int emptyViewLayout) {
         FlexboxLayout flexboxLayout = new FlexboxLayout(mContext);
         FlexboxLayout.LayoutParams lp = new FlexboxLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
         flexboxLayout.setLayoutParams(lp);
@@ -306,20 +313,18 @@ public class FlexibleFilter<T> extends LinearLayout {
 
         if (emptyViewLayout != -1) {
             View emptyView = LayoutInflater.from(mContext).inflate(emptyViewLayout, null);
-            mFilters.add(new FilterHolder(new ArrayList<Option>(), flexboxLayout, emptyView));
+            mFilters.add(new FilterHolder(filterNum, new ArrayList<Option>(), flexboxLayout, emptyView));
         } else {
             View emptyView = LayoutInflater.from(mContext).inflate(mDefaultEmptyViewLayout, null);
-            mFilters.add(new FilterHolder(new ArrayList<Option>(), flexboxLayout, emptyView));
+            mFilters.add(new FilterHolder(filterNum, new ArrayList<Option>(), flexboxLayout, emptyView));
         }
 
-        addFilterOption(mFilters.size() - 1, defaultT, 0, getScreenWidthPixel(mContext), dpToPixels(mContext, 8), dpToPixels(mContext, 8), dpToPixels(mContext, 8), new OptionGetStringCallback<T>() {
+        addFilterOption(filterNum, defaultT, 0, getScreenWidthPixel(mContext), new OptionGetStringCallback<T>() {
             @Override
             public String getString(T filterId, int count) {
                 return String.format(Locale.CHINESE, "All(%d)", count);
             }
         });
-
-        return mFilters.size() - 1;
     }
 
     /**
@@ -327,7 +332,7 @@ public class FlexibleFilter<T> extends LinearLayout {
      */
     public void updateAllFilters() {
         for (int i = 0; i < mFilters.size(); i++) {
-            updateFilter(i);
+            updateFilter(mFilters.get(i).getFilterNum());
         }
     }
 
@@ -337,7 +342,11 @@ public class FlexibleFilter<T> extends LinearLayout {
      * @return true if opened.
      */
     public boolean isCurrentOpen() {
-        return mFilters.get(mCurrentOpeningFilters.get(0)).isContainerVisible();
+        if (getFilter(mCurrentOpeningFilters.get(0)) == null) {
+            mFilterCallback.noSuchFilterError(0);
+            return false;
+        }
+        return getFilter(mCurrentOpeningFilters.get(0)).isContainerVisible();
     }
 
     /**
@@ -363,11 +372,12 @@ public class FlexibleFilter<T> extends LinearLayout {
         }
 
         for (int i = 0; i < openFilters.size(); i++) {
-            mFilters.get(openFilters.get(i)).setContainerVisible(isCurrentOpen());
+            FilterHolder filterHolder = getFilter(openFilters.get(i));
+            filterHolder.setContainerVisible(isCurrentOpen());
             if (mFilterColCount > 0) {
-                mFilters.get(openFilters.get(i)).setContainerSize(getScreenWidthPixel(mContext) / mFilterColCount);
+                filterHolder.setContainerSize(getScreenWidthPixel(mContext) / mFilterColCount);
             } else if (mFilterColCount == -1) {
-                mFilters.get(openFilters.get(i)).setContainerSize(ViewGroup.LayoutParams.WRAP_CONTENT);
+                filterHolder.setContainerSize(ViewGroup.LayoutParams.WRAP_CONTENT);
             }
         }
 
@@ -389,30 +399,36 @@ public class FlexibleFilter<T> extends LinearLayout {
      * Perform a click on an option by code.
      *
      * @param filterNum The unique filter number you want to click.
-     * @param filterId  The unique filter option ID you want to click.
+     * @param filterId  The unique filter option ID you want to click. null means unselect all.
      */
-    public void optionSelect(int filterNum, T filterId) {
-
-        if (isFilterOpening(filterNum)) {
-//            mCurrentOpeningFilters = filterNum;
-
-            if(mChangeColorWhenSelect){
-                mFilters.get(filterNum).setOptionsDeco(filterId);
-            }
-
-            if (mShouldCloseAfterClick) {
-                close();
-            }
-
-            mFilters.get(filterNum).setCurrentSelected(filterId);
-
-            updateFilter(filterNum);
-
-            mFilterCallback.filterOptionClicked(mTitleView, filterNum, filterId);
-        } else {
-            // not in should we add?
-            mFilterCallback.filterOptionNotExistError();
+    public void optionSelect(int filterNum, @Nullable T filterId) {
+        if (!isFiltersValid(filterNum)) {
+            return;
         }
+
+        if (filterId == null) {
+            mFilterCallback.filterUnSelectedAll(filterNum);
+            getFilter(filterNum).setCurrentSelected(null);
+
+            getFilter(filterNum).setOptionsDeco();
+        } else {
+            if (isFilterOpening(filterNum)) {
+                getFilter(filterNum).setCurrentSelected(filterId);
+
+                if (mChangeColorWhenSelect) {
+                    getFilter(filterNum).setOptionsDeco();
+                }
+
+                mFilterCallback.filterOptionClicked(mTitleView, filterNum, filterId);
+            } else {
+                // not in should we add?
+            }
+        }
+        if (mShouldCloseAfterClick) {
+            close();
+        }
+
+        updateFilter(filterNum);
     }
 
     /**
@@ -423,8 +439,10 @@ public class FlexibleFilter<T> extends LinearLayout {
      * @param count     New count.
      */
     public void updateCertainOption(int filterNum, T filterId, int count) {
-        mFilters.get(filterNum).getFilterButton(filterId).setResultCount(count);
-        updateFilter(filterNum);
+        if (isFiltersValid(filterNum)) {
+            getFilter(filterNum).getFilterButton(filterId).setResultCount(count);
+            updateFilter(filterNum);
+        }
     }
 
     /**
@@ -433,8 +451,10 @@ public class FlexibleFilter<T> extends LinearLayout {
      * @param filterNum The filter number you want to remove.
      */
     public void removeFilter(int filterNum) {
-        mFilters.get(filterNum).removeFilter();
-        updateAllFilters();
+        if (isFiltersValid(filterNum)) {
+            getFilter(filterNum).removeFilter();
+            updateAllFilters();
+        }
     }
 
     /**
@@ -463,10 +483,12 @@ public class FlexibleFilter<T> extends LinearLayout {
      * @param mOptionGetStringCallback For you to decide the text on the option.
      */
     public void addFilterOption(final int filterNum, T filterId, int count, int width, int leftMargin, int rightMargin, int upDownMargin, OptionGetStringCallback<T> mOptionGetStringCallback) {
-        AutofitTextView autofitTextView = getModifiedTextView(filterNum, filterId, width, leftMargin, rightMargin, upDownMargin);
-        mFilters.get(filterNum).addNewFilterButton(new Option(filterId, autofitTextView, count, mOptionGetStringCallback));
+        if (isFiltersValid(filterNum)) {
+            AutofitTextView autofitTextView = getModifiedTextView(filterNum, filterId, width, leftMargin, rightMargin, upDownMargin);
+            getFilter(filterNum).addNewFilterButton(new Option(filterId, autofitTextView, count, mOptionGetStringCallback));
 
-        updateAllFilters();
+            updateAllFilters();
+        }
     }
 
     /**
@@ -519,10 +541,13 @@ public class FlexibleFilter<T> extends LinearLayout {
         this.mChangeColorWhenSelect = changeColorWhenSelect;
     }
 
-    public List<T> getAllFilters(int filterNum) {
+    public List<T> getAllFilterIdsInFilterNum(int filterNum) {
         List<T> allFilterIds = new ArrayList<>();
-        for (int i = 0; i < mFilters.get(filterNum).getOptions().size(); i++) {
-            allFilterIds.add(mFilters.get(filterNum).getOptions().get(i).getFilterId());
+        if (!isFiltersValid(filterNum)) {
+            return allFilterIds;
+        }
+        for (int i = 0; i < getFilter(filterNum).getOptions().size(); i++) {
+            allFilterIds.add(getFilter(filterNum).getOptions().get(i).getFilterId());
         }
         return allFilterIds;
     }
@@ -533,7 +558,13 @@ public class FlexibleFilter<T> extends LinearLayout {
 
     private void closeAllOpeningFilter() {
         for (int i = 0; i < mCurrentOpeningFilters.size(); i++) {
-            closeAnim(mFilters.get(mCurrentOpeningFilters.get(i)).mContainer);
+            if (isFiltersValid(mCurrentOpeningFilters.get(i))) {
+                if (getFilter(mCurrentOpeningFilters.get(i)).getHeight() == 0) {
+                    getFilter(mCurrentOpeningFilters.get(i)).readyToTakeHeight(true, true);
+                } else {
+                    closeAnim(getFilter(mCurrentOpeningFilters.get(i)).mContainer);
+                }
+            }
         }
     }
 
@@ -575,17 +606,26 @@ public class FlexibleFilter<T> extends LinearLayout {
 
     private boolean isFiltersValid(List<Integer> checkFilters) {
         for (int i = 0; i < checkFilters.size(); i++) {
-            if (mFilters.size() <= checkFilters.get(i)) {
-                mFilterCallback.noSuchFilterError(checkFilters.get(i));
+            if (getFilter(checkFilters.get(i)) == null) {
                 return false;
             }
         }
         return true;
     }
 
+    private boolean isFiltersValid(int checkFilter) {
+        if (getFilter(checkFilter) == null) {
+            mFilterCallback.noSuchFilterError(checkFilter);
+            return false;
+        }
+        return true;
+    }
+
     private void hideAllOpeningContainer() {
         for (int i = 0; i < mCurrentOpeningFilters.size(); i++) {
-            mFilters.get(mCurrentOpeningFilters.get(i)).setContainerVisible(false);
+            if (isFiltersValid(mCurrentOpeningFilters.get(i))) {
+                getFilter(mCurrentOpeningFilters.get(i)).setContainerVisible(false);
+            }
         }
     }
 
@@ -597,40 +637,53 @@ public class FlexibleFilter<T> extends LinearLayout {
     }
 
     private void updateFilter(int filterNum) {
-        if (mShouldHideZeroFilters) {
-            mFilters.get(filterNum).hideZeroOptions();
-            mFilters.get(filterNum).showNonZeroOptions();
+        if (isFiltersValid(filterNum)) {
+            FilterHolder filterHolder = getFilter(filterNum);
+            if (mShouldHideZeroFilters) {
+                filterHolder.hideZeroOptions();
+                filterHolder.showNonZeroOptions();
+            } else {
+                filterHolder.showAllOptions();
+            }
+            if (!mShouldHideAll) {
+                filterHolder.setOptionVisible(0, true);
+            } else {
+                filterHolder.setOptionVisible(0, false);
+            }
+            filterHolder.updateAll();
         } else {
-            mFilters.get(filterNum).showAllOptions();
+            return;
         }
-        if (!mShouldHideAll) {
-            mFilters.get(filterNum).setOptionVisible(0, true);
-        } else {
-            mFilters.get(filterNum).setOptionVisible(0, false);
+    }
+
+    private FilterHolder getFilter(int filterNum) {
+        for (int i = 0; i < mFilters.size(); i++) {
+            if (mFilters.get(i).getFilterNum() == filterNum) return mFilters.get(i);
         }
-        mFilters.get(filterNum).updateAll();
+        mFilterCallback.noSuchFilterError(filterNum);
+        return null;
     }
 
     private void openGenreSelectorLayout(int openFilter) {
-        if (mFilters.get(openFilter).getHeight() == 0) {
-            mFilters.get(openFilter).setContainerVisible(true);
-//            ViewGroup.LayoutParams lp = new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-//            mFilters.get(openFilter).mContainer.setLayoutParams(lp);
-            mFilters.get(openFilter).readyToTakeHeight(true);
+        if (getFilter(openFilter) == null) {
+            mFilterCallback.noSuchFilterError(openFilter);
+            return;
+        }
+        FilterHolder filterHolder = getFilter(openFilter);
+        if (filterHolder.getHeight() == 0) {
+            filterHolder.readyToTakeHeight(false, true);
+//            filterHolder.mContainer
         } else {
-            mFilters.get(openFilter).setContainerVisible(true);
-            ValueAnimator va = createDropAnim(mFilters.get(openFilter).mContainer, 0, mFilters.get(openFilter).getHeight());
+            filterHolder.setContainerVisible(true);
+            ValueAnimator va = createDropAnim(filterHolder.mContainer, 0, filterHolder.getHeight());
             va.start();
         }
-//        mOpenArrow.setVisibility(View.INVISIBLE);
-//        mCloseArrow.setVisibility(View.VISIBLE);
     }
 
     private void closeAnim(final View view) {
         int origHeight = view.getHeight();
         if (origHeight == 0) {
             view.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
-//            mFilters.get(mCurrentOpeningFilters).setFilterHeight(view.getMeasuredHeight());
             view.setVisibility(View.GONE);
         } else {
             ValueAnimator va = createDropAnim(view, origHeight, 0);
@@ -691,6 +744,7 @@ public class FlexibleFilter<T> extends LinearLayout {
      * Use to hold things we need for a filter.
      */
     class FilterHolder {
+        private int mFilterNum;
         private List<Option> mOptions;
         private FlexboxLayout mContainer;
         private int mHeight = 0;
@@ -699,7 +753,11 @@ public class FlexibleFilter<T> extends LinearLayout {
 
         private boolean mIsRemoved = false;
 
-        FilterHolder(List<Option> mOptions, FlexboxLayout mContainer, View emptyView) {
+        private ExecutorService executorService = Executors.newSingleThreadExecutor();
+        private Future mGetHeightRunnableFuture = null;
+
+        FilterHolder(int filterNum, List<Option> mOptions, FlexboxLayout mContainer, View emptyView) {
+            this.mFilterNum = filterNum;
             this.mOptions = mOptions;
             this.mContainer = mContainer;
             this.mEmptyView = emptyView;
@@ -732,7 +790,7 @@ public class FlexibleFilter<T> extends LinearLayout {
                     sum += mOptions.get(i).getResultCount();
                 }
 
-                if(sum > 0){
+                if (sum > 0) {
                     isEveryOptionCountZero = false;
                 }
 
@@ -781,7 +839,7 @@ public class FlexibleFilter<T> extends LinearLayout {
 
         void showAllOptions() {
             for (int i = 0; i < mOptions.size(); i++) {
-                    mOptions.get(i).getAutofitTextView().setVisibility(VISIBLE);
+                mOptions.get(i).getAutofitTextView().setVisibility(VISIBLE);
             }
         }
 
@@ -794,9 +852,9 @@ public class FlexibleFilter<T> extends LinearLayout {
             return mOptions;
         }
 
-        void setOptionsDeco(T filterId) {
+        void setOptionsDeco() {
             for (int i = 0; i < mOptions.size(); i++) {
-                if (mOptions.get(i).getFilterId().equals(filterId)) {
+                if (mOptions.get(i).getFilterId().equals(mCurrentSelected)) {
                     mOptions.get(i).setSelected();
                 } else {
                     mOptions.get(i).setUnSelected();
@@ -808,18 +866,17 @@ public class FlexibleFilter<T> extends LinearLayout {
             mContainer.addView(option.autofitTextView);
             mOptions.add(option);
 
-
-                    if (isContainerVisible()) {
-                        readyToTakeHeight(false);
-                    } else {
-                        setContainerVisible(true);
-                        readyToTakeHeight(true);
-                    }
+            Log.d("Filter Log", "addNewFilterButton " + isContainerVisible());
+            if (isContainerVisible()) {
+                readyToTakeHeight(false, false);
+            } else {
+                readyToTakeHeight(true, false);
+            }
         }
 
         void setContainerSize(int width) {
             mContainer.getLayoutParams().width = width;
-            readyToTakeHeight(isContainerVisible());
+            readyToTakeHeight(isContainerVisible(), true);
         }
 
         boolean isContainerVisible() {
@@ -828,6 +885,7 @@ public class FlexibleFilter<T> extends LinearLayout {
 
         void setContainerVisible(boolean visible) {
             if (mIsRemoved) return;
+            Log.d("Filter Log", "setContainerVisible: " + visible);
             if (visible) {
                 mContainer.setVisibility(VISIBLE);
             } else {
@@ -839,38 +897,73 @@ public class FlexibleFilter<T> extends LinearLayout {
             return mHeight;
         }
 
-        void readyToTakeHeight(final boolean shouldSetToGoneWhenDone) {
+
+        public int getFilterNum() {
+            return mFilterNum;
+        }
+
+        private boolean shouldSetToGoneWhenDoneLast;
+
+        void readyToTakeHeight(final boolean shouldSetToGoneWhenDone, final boolean force) {
             FlexboxLayout.LayoutParams lp = new FlexboxLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
             lp.width = mContainer.getLayoutParams().width;
             mContainer.setLayoutParams(lp);
 
-//            mContainer.setVisibility(GONE);
-//            mContainer.setVisibility(VISIBLE);
+            setContainerVisible(true);
+
+
             mContainer.post(new Runnable() {
                 @Override
                 public void run() {
-                    mHeight = mContainer.getMeasuredHeight();
-                    if (shouldSetToGoneWhenDone) {
-                        setContainerVisible(false);
+                    final boolean finalShouldSetToGoneWhenDone;
+
+                    if (mGetHeightRunnableFuture != null) {
+                        mGetHeightRunnableFuture.cancel(true);
+                        if (!force) {
+                            finalShouldSetToGoneWhenDone = shouldSetToGoneWhenDoneLast;
+                        } else {
+                            finalShouldSetToGoneWhenDone = shouldSetToGoneWhenDone;
+                        }
+                        shouldSetToGoneWhenDoneLast = finalShouldSetToGoneWhenDone;
+
+                        Log.d("Filter Log", "canceled runnable, force = " + force + " shouldSetToGoneWhenDoneLast = " + shouldSetToGoneWhenDoneLast);
+                    } else {
+                        shouldSetToGoneWhenDoneLast = shouldSetToGoneWhenDone;
+                        finalShouldSetToGoneWhenDone = shouldSetToGoneWhenDoneLast;
                     }
+
+                    mGetHeightRunnableFuture = executorService.submit(new GetHeightRunnable(finalShouldSetToGoneWhenDone));
                 }
             });
-
-//            mContainer.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
-//                public void onGlobalLayout() {
-//                    mContainer.getViewTreeObserver().removeOnGlobalLayoutListener(this);
-//                    // do the rest of your stuff here
-//
-//                    mHeight = mContainer.getMeasuredHeight();
-//                    if (shouldSetToGoneWhenDone) {
-//                        setContainerVisible(false);
-//                    }
-//                }
-//            });
         }
 
         public void setCurrentSelected(T currentSelected) {
             this.mCurrentSelected = currentSelected;
+        }
+
+
+        private class GetHeightRunnable implements Runnable {
+            boolean shouldSetToGoneWhenDone;
+            String from;
+
+            public GetHeightRunnable(boolean shouldSetToGoneWhenDone) {
+                this.shouldSetToGoneWhenDone = shouldSetToGoneWhenDone;
+                this.from = from;
+            }
+
+            @Override
+            public void run() {
+                mHeight = mContainer.getMeasuredHeight();
+                Log.d("Filter Log", "GetHeightRunnable: " + shouldSetToGoneWhenDone + ", h = " + mHeight);
+                if (shouldSetToGoneWhenDone) {
+                    setContainerVisible(false);
+                } else {
+                    setContainerVisible(true);
+                }
+                mGetHeightRunnableFuture = null;
+            }
+
+
         }
     }
     //endregion
